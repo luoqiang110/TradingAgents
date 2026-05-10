@@ -13,3 +13,7 @@ results
 eval_results
 Dockerfile
 docker-compose.yml
+server/runtime
+server/certbot
+front/node_modules
+front/dist

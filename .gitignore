@@ -217,3 +217,13 @@ __marimo__/
 
 # Cache
 **/data_cache/
+
+# TradingAgents cloud app runtime
+server/runtime/
+server/certbot/
+server/.env
+
+# Frontend
+front/node_modules/
+front/dist/
+front/.env.local

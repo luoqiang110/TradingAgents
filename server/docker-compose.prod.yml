@@ -1,0 +1,60 @@
+name: tradingagents-cloud
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    env_file:
+      - .env
+    environment:
+      SERVER_RUNTIME_DIR: /app/runtime
+      TRADINGAGENTS_RESULTS_DIR: /app/runtime/logs
+      TRADINGAGENTS_CACHE_DIR: /app/runtime/cache
+      TRADINGAGENTS_MEMORY_LOG_PATH: /app/runtime/memory/trading_memory.md
+    volumes:
+      - tradingagents_runtime:/app/runtime
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  front:
+    build:
+      context: ..
+      dockerfile: front/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    expose:
+      - "80"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - api
+      - front
+    environment:
+      NGINX_SERVER_NAME: ${NGINX_SERVER_NAME:-localhost}
+      CERTBOT_DOMAIN: ${CERTBOT_DOMAIN:-localhost}
+      DOLLAR: "$$"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/templates/${NGINX_TEMPLATE:-https.conf.template}:/etc/nginx/templates/default.conf.template:ro
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt:ro
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles:
+      - certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    command: certonly --webroot --webroot-path=/var/www/certbot --email ${CERTBOT_EMAIL} --agree-tos --no-eff-email -d ${CERTBOT_DOMAIN}
+
+volumes:
+  tradingagents_runtime:
+
