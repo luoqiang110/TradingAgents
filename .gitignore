@@ -148,7 +148,6 @@ activemq-data/
 *.sage.py
 
 # Environments
-.env
 .envrc
 .venv
 env/
@@ -221,7 +220,7 @@ __marimo__/
 # TradingAgents cloud app runtime
 server/runtime/
 server/certbot/
-server/.env
+
 
 # Frontend
 front/node_modules/
