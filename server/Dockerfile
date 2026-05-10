@@ -15,8 +15,10 @@ COPY tradingagents ./tradingagents
 COPY cli ./cli
 COPY server/requirements.txt ./server/requirements.txt
 
-RUN pip install --no-cache-dir -e . -r server/requirements.txt
-
+RUN pip install --no-cache-dir \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple \
+    -e . -r server/requirements.txt
+    
 COPY server ./server
 
 RUN useradd --create-home appuser \

@@ -3,7 +3,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY front/package.json ./
-RUN npm install
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm install
 
 COPY front ./
 

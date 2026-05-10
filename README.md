@@ -21,3 +21,21 @@ make start-daemon：生产部署模式，使用 server/docker-compose.prod.yml �
 make config：生成 .env 和 server/.env，已有配置时会中止。
 make config-upgrade：按当前项目结构合并 .env.example / server/.env.example 的新增字段。
 make install：安装 Python 后端依赖、前端依赖；如果以后添加 .pre-commit-config.yaml，也会安装 hooks.
+
+
+
+我已验证：
+
+make check
+make install
+make doctor
+结果正常，虚拟环境依赖也确认 OK：
+
+venv deps ok
+之后你本地启动直接用：
+
+make dev
+部署服务器上还是：
+
+make install
+make start-daemon
