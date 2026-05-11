@@ -16,6 +16,31 @@ class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
     def invoke(self, input, config=None, **kwargs):
         return normalize_content(super().invoke(input, config, **kwargs))
 
+    def _get_request_payload(self, input_, *, stop=None, **kwargs):
+        """Defensive payload preparation: remove `tool_calls` if no tool messages.
+
+        Some Google provider integrations require tool messages to accompany
+        any assistant `tool_calls`. If none are present in the serialized
+        payload, remove `tool_calls` from assistant message dicts to avoid
+        provider-side validation errors.
+        """
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        outgoing = payload.get("messages", [])
+
+        has_tool_messages = any(
+            isinstance(m, dict) and (
+                m.get("role") == "tool" or "tool_outputs" in m or m.get("type") == "tool"
+            )
+            for m in outgoing
+        )
+
+        if not has_tool_messages:
+            for message_dict in outgoing:
+                if isinstance(message_dict, dict) and message_dict.get("tool_calls"):
+                    message_dict.pop("tool_calls", None)
+
+        return payload
+
 
 class GoogleClient(BaseLLMClient):
     """Client for Google Gemini models."""

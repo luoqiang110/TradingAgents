@@ -31,6 +31,40 @@ class NormalizedChatOpenAI(ChatOpenAI):
             method = "function_calling"
         return super().with_structured_output(schema, method=method, **kwargs)
 
+    def _get_request_payload(self, input_, *, stop=None, **kwargs):
+        """Prepare request payload and strip unsafe `tool_calls` when no
+        corresponding tool messages are present.
+
+        Some providers validate that any assistant message containing
+        `tool_calls` must also include the tool outputs/tool messages that
+        respond to each `tool_call_id`. If those tool messages are absent
+        (e.g. upstream message parsing omitted them) the provider returns
+        HTTP 400. To be defensive, remove `tool_calls` from outgoing
+        assistant messages when no tool messages are included in the
+        serialized payload.
+        """
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        outgoing = payload.get("messages", [])
+
+        # Heuristic: consider the payload to contain tool messages if any
+        # serialized message looks like a tool message (role == 'tool' or
+        # contains 'tool_outputs' or similar). If no such message exists,
+        # remove `tool_calls` from assistant message dicts to avoid API
+        # validation errors.
+        has_tool_messages = any(
+            isinstance(m, dict) and (
+                m.get("role") == "tool" or "tool_outputs" in m or m.get("type") == "tool"
+            )
+            for m in outgoing
+        )
+
+        if not has_tool_messages:
+            for message_dict in outgoing:
+                if isinstance(message_dict, dict) and message_dict.get("tool_calls"):
+                    message_dict.pop("tool_calls", None)
+
+        return payload
+
 
 def _input_to_messages(input_: Any) -> list:
     """Normalise a langchain LLM input to a list of message objects.

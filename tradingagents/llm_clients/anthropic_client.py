@@ -22,6 +22,32 @@ class NormalizedChatAnthropic(ChatAnthropic):
     def invoke(self, input, config=None, **kwargs):
         return normalize_content(super().invoke(input, config, **kwargs))
 
+    def _get_request_payload(self, input_, *, stop=None, **kwargs):
+        """Defensive payload preparation: remove `tool_calls` if no tool messages.
+
+        Some Anthropic integrations require that any assistant `tool_calls`
+        are paired with corresponding tool messages in the serialized
+        payload. If those tool messages are absent, providers can reject
+        the request. Strip `tool_calls` from outgoing assistant message
+        dicts when no tool messages are present.
+        """
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        outgoing = payload.get("messages", [])
+
+        has_tool_messages = any(
+            isinstance(m, dict) and (
+                m.get("role") == "tool" or "tool_outputs" in m or m.get("type") == "tool"
+            )
+            for m in outgoing
+        )
+
+        if not has_tool_messages:
+            for message_dict in outgoing:
+                if isinstance(message_dict, dict) and message_dict.get("tool_calls"):
+                    message_dict.pop("tool_calls", None)
+
+        return payload
+
 
 class AnthropicClient(BaseLLMClient):
     """Client for Anthropic Claude models."""
