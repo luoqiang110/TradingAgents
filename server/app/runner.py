@@ -74,11 +74,40 @@ class AnalysisRunner:
         final_state: dict[str, Any],
         decision: str,
     ) -> AnalysisResult:
-        reports = {
-            key: value
-            for key in REPORT_FIELDS
-            if (value := final_state.get(key))
-        }
+        # Coerce report values to JSON-serializable strings.
+        reports = {}
+        for key in REPORT_FIELDS:
+            value = final_state.get(key)
+            if not value:
+                continue
+            # If value is an AIMessage-like object, extract its content
+            try:
+                from langchain_core.messages import AIMessage
+
+                if isinstance(value, AIMessage):
+                    reports[key] = getattr(value, "content", "")
+                    continue
+            except Exception:
+                # langchain not available or import failed; fall back to attribute check
+                pass
+
+            # If it's a list (e.g., content blocks), join text pieces
+            if isinstance(value, list):
+                try:
+                    parts = []
+                    for item in value:
+                        if hasattr(item, "content"):
+                            parts.append(str(item.content))
+                        else:
+                            parts.append(str(item))
+                    reports[key] = "\n".join(p for p in parts if p)
+                    continue
+                except Exception:
+                    reports[key] = str(value)
+                    continue
+
+            # Fallback: stringify value
+            reports[key] = str(value)
         safe_ticker = safe_ticker_component(request.ticker)
         state_log_path = (
             Path(self.settings.results_dir)

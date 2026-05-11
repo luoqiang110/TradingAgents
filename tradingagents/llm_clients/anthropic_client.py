@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from langchain_anthropic import ChatAnthropic
 
-from .base_client import BaseLLMClient, normalize_content
+from .base_client import BaseLLMClient, normalize_content, with_rate_limit_retry
 from .validators import validate_model
 
 _PASSTHROUGH_KWARGS = (
@@ -20,7 +20,9 @@ class NormalizedChatAnthropic(ChatAnthropic):
     """
 
     def invoke(self, input, config=None, **kwargs):
-        return normalize_content(super().invoke(input, config, **kwargs))
+        # Wrap provider call with retry on rate-limit errors
+        response = with_rate_limit_retry(super().invoke, input, config, **kwargs)
+        return normalize_content(response)
 
     def _get_request_payload(self, input_, *, stop=None, **kwargs):
         """Defensive payload preparation: remove `tool_calls` if no tool messages.

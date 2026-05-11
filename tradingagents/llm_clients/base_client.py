@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Optional, Callable
 import warnings
+import time
+import random
 
 
 def normalize_content(response):
@@ -60,3 +62,44 @@ class BaseLLMClient(ABC):
     def validate_model(self) -> bool:
         """Validate that the model is supported by this client."""
         pass
+
+
+def with_rate_limit_retry(
+    func: Callable[..., Any],
+    *args,
+    retries: int = 5,
+    base_backoff: float = 1.0,
+    max_backoff: float = 60.0,
+    **kwargs,
+) -> Any:
+    """Call `func` with exponential backoff retry on rate-limit errors.
+
+    This is a lightweight, dependency-free retry helper that treats HTTP
+    429 responses and common rate-limit messages as retriable. It adds a
+    small jitter to avoid thundering-herd restarts.
+    """
+    attempt = 0
+    while True:
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            attempt += 1
+
+            # Heuristics for retriable errors
+            retriable = False
+            msg = str(e).lower()
+            status = getattr(e, "status_code", None) or getattr(e, "http_status", None)
+            if status == 429:
+                retriable = True
+            if "too many requests" in msg or "rate limit" in msg or "rate_limit" in msg:
+                retriable = True
+            if e.__class__.__name__.lower().startswith("rate"):
+                retriable = True
+
+            if not retriable or attempt > retries:
+                raise
+
+            backoff = min(max_backoff, base_backoff * (2 ** (attempt - 1)))
+            jitter = random.uniform(0, backoff * 0.1)
+            sleep_time = backoff + jitter
+            time.sleep(sleep_time)
